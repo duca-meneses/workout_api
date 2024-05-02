@@ -28,6 +28,7 @@ isort = "^5.13.2"
 [tool.ruff]
 line-length = 79
 exclude = ['.venv']
+extend-exclude = ['alembic']
 
 [tool.isort]
 profile = "black"
