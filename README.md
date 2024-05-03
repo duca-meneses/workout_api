@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <b>Construindo uma Api rest async com python usando o framework FastAPI no bootcamp Python AI Backend Developer </b>
+  <b>Construindo uma Api rest async com python usando o framework FastAPI no bootcamp Python AI Backend Developer da DIO</b>
 </p>
 
 <h2 id="started">🚀 Como começar</h2>
