@@ -1,7 +1,9 @@
 from uuid import uuid4
 
 from fastapi import APIRouter, Body, HTTPException, status
+from fastapi_pagination import Page, paginate
 from pydantic import UUID4
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
 
 from workout_api.centro_treinamento.models import CentroTreinamentoModel
@@ -25,16 +27,22 @@ async def post(
     centro_treinamento_in: CentroTreinamentoIn = Body(...),
 ) -> CentroTreinamentoOut:
 
-    centro_treinamento_out = CentroTreinamentoOut(
-        id=uuid4(), **centro_treinamento_in.model_dump()
-    )
-    centro_treinamento_model = CentroTreinamentoModel(
-        **centro_treinamento_out.model_dump()
-    )
+    try:
+        centro_treinamento_out = CentroTreinamentoOut(
+            id=uuid4(), **centro_treinamento_in.model_dump()
+        )
+        centro_treinamento_model = CentroTreinamentoModel(
+            **centro_treinamento_out.model_dump()
+        )
 
-    db_session.add(centro_treinamento_model)
-    await db_session.commit()
-
+        db_session.add(centro_treinamento_model)
+        await db_session.commit()
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_303_SEE_OTHER,
+            detail=f'Já existe um Centro de Treinamento cadastrado com esse nome.'
+        )
+        
     return centro_treinamento_out
 
 
@@ -42,7 +50,7 @@ async def post(
     path='/',
     summary='Consultar todos os Centros de treinamento',
     status_code=status.HTTP_200_OK,
-    response_model=list[CentroTreinamentoOut],
+    response_model=Page[CentroTreinamentoOut],
 )
 async def query(db_session: DatabaseDependency) -> list[CentroTreinamentoOut]:
     categorias: list[CentroTreinamentoOut] = (
@@ -51,7 +59,7 @@ async def query(db_session: DatabaseDependency) -> list[CentroTreinamentoOut]:
         .all()
     )
 
-    return categorias
+    return paginate(categorias)
 
 
 @router.get(

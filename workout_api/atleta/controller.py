@@ -2,11 +2,13 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, Body, HTTPException, status
+from fastapi_pagination import Page, paginate
 from pydantic import UUID4
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
 
 from workout_api.atleta.models import AtletaModel
-from workout_api.atleta.schemas import AtletaIn, AtletaOut, AtletaUpdate
+from workout_api.atleta.schemas import AtletaGetAll, AtletaIn,  AtletaOut, AtletaUpdate
 from workout_api.categorias.models import CategoriaModel
 from workout_api.centro_treinamento.models import CentroTreinamentoModel
 from workout_api.contrib.dependencies import DatabaseDependency
@@ -76,10 +78,15 @@ async def post(
 
         db_session.add(atleta_model)
         await db_session.commit()
-    except Exception as exc:
+    except IntegrityError:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f'Ocorreu um erro ao inserir os dados no banco\n{exc}',
+            status_code=status.HTTP_303_SEE_OTHER,
+            detail=f'Já existe um atleta cadastrado com esse CPF.'
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'Ocorreu um erro ao inserir os dados no banco',
         )
 
     return atleta_out
@@ -87,16 +94,17 @@ async def post(
 
 @router.get(
     path='/',
-    summary='Consultar todos os Atletass',
+    summary='Consultar todos os Atletas',
     status_code=status.HTTP_200_OK,
-    response_model=list[AtletaOut],
+    response_model=Page[AtletaGetAll],
 )
-async def query(db_session: DatabaseDependency) -> list[AtletaOut]:
-    atletas: list[AtletaOut] = (
+async def query_all(db_session: DatabaseDependency, nome: str | None = None, cpf: str | None = None) -> list[AtletaOut]:
+    atletas: list[AtletaGetAll] = (
         (await db_session.execute(select(AtletaModel))).scalars().all()
     )
-
-    return [AtletaOut.model_validate(atleta) for atleta in atletas]
+    
+    results = [AtletaGetAll.model_validate(atleta) for atleta in atletas if (nome is None and cpf is None) or (nome == atleta.nome or cpf == atleta.cpf)]
+    return paginate(results)
 
 
 @router.get(
@@ -127,7 +135,7 @@ async def query_by_id(id: UUID4, db_session: DatabaseDependency) -> AtletaOut:
     status_code=status.HTTP_200_OK,
     response_model=AtletaOut,
 )
-async def query_by_id(
+async def patch_by_id(
     id: UUID4,
     db_session: DatabaseDependency,
     atleta_up: AtletaUpdate = Body(...),
@@ -160,7 +168,7 @@ async def query_by_id(
     summary='Deletar um Atleta pelo id',
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def query_by_id(id: UUID4, db_session: DatabaseDependency) -> None:
+async def delete_by_id(id: UUID4, db_session: DatabaseDependency) -> None:
     atleta: AtletaOut = (
         (await db_session.execute(select(AtletaModel).filter_by(id=id)))
         .scalars()
