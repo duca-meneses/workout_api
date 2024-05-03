@@ -10,6 +10,7 @@ click==8.1.7
 colorama==0.4.6
 coverage==7.5.0
 fastapi==0.110.3
+fastapi-pagination==0.12.24
 flake8==4.0.1
 greenlet==3.0.3
 h11==0.14.0
